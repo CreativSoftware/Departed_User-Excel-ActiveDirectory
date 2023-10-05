@@ -3,7 +3,7 @@ Install-Module -Name ImportExcel -Force
 
 #Email Setup
 $From = Read-Host -Prompt "Please enter YOUR Email Address"
-$EmailTo = "desktoptechs@doi.nyc.gov", "SecurityAlert@doi.nyc.gov"
+$EmailTo = "Test@gmail.com", "test2@yahoo.com"
 
 #Input domain credientials and verifies them.
 $authenticate = $true
@@ -12,7 +12,7 @@ while ($authenticate) {
     $domain_username = Read-Host -Prompt "Enter YOUR ADMIN domain\username"
     $credientials = Get-Credential -UserName $domain_username -Message 'Enter Admin Password'
     try {
-        $session = New-PSSession -ComputerName 'doidc02' -Credential $credientials -ErrorAction Stop
+        $session = New-PSSession -ComputerName 'Server' -Credential $credientials -ErrorAction Stop
         Remove-PSSession $session
         Write-Host "Authentication successful" -ForegroundColor Green
         $authenticate = $false
@@ -36,7 +36,7 @@ foreach ($user in $externaltempusers){
     
     foreach ($name in $names) {
         $fullname = $name.Name
-        if ($name.distinguishedName -eq "CN=$fullname,OU=ExternalTempUsers,OU=DOI Users,DC=DOI,DC=NYCNET") {
+        if ($name.distinguishedName -eq "CN=$fullname,DistinguishedName") {
             $username =  $name.SamAccountName
         }
     }
@@ -67,7 +67,7 @@ foreach ($user in $externaltempusers){
     $membershipgroups = Get-ADPrincipalGroupMembership -Identity $username
 
     foreach ($membership in $membershipgroups){
-        if ($membership.distinguishedName -eq 'CN=Domain Users,OU=General SG,OU=Security Groups,OU=Groups,DC=DOI,DC=NYCNET')
+        if ($membership.distinguishedName -eq 'DistinguishedName')
         {
         continue
         }
@@ -76,21 +76,21 @@ foreach ($user in $externaltempusers){
 
     #Move AD account to Departed User's OU
     $username_details = Get-ADUser -Identity $username
-    Move-ADObject -Identity $username_details.distinguishedName -TargetPath 'OU=Departed Users,DC=DOI,DC=NYCNET' -Credential $credientials
+    Move-ADObject -Identity $username_details.distinguishedName -TargetPath 'DistinguishedName' -Credential $credientials
 
     #Move the Home and Profile folders to the Archive server. 
-    Invoke-Command -ComputerName "doidc02" -Credential $credientials -ScriptBlock {
+    Invoke-Command -ComputerName "Server" -Credential $credientials -ScriptBlock {
         $Folder_Name = $using:username
-        $Path1 = "\\doiarchive01\home_archive\$Folder_Name"
+        $Path1 = "\\Server\homedrive\$Folder_Name"
         New-Item -Path $Path1 -ItemType Directory 
-        $Path2 = "\\doiarchive01\profile_archive\$Folder_Name"
+        $Path2 = "\\server\profile\$Folder_Name"
         New-Item -Path $Path2 -ItemType Directory 
 
-        $Source_Home_Folder = "\\doi.nycnet\doi_share\home_folder\$Folder_Name"
-        $Destination_Home_Folder = "\\DOIARCHIVE01\HOME_ARCHIVE\$Folder_name"
+        $Source_Home_Folder = "\\Server\homedrive\$Folder_Name"
+        $Destination_Home_Folder = "\\Server\Homearchive\$Folder_name"
 
-        $Source_Profile_folder = "\\DOIPROFILE01\USER_FOLDER_REDIRECTION\$Folder_name"
-        $Destination_Profile_folder = "\\DOIARCHIVE01\PROFILE_ARCHIVE\$Folder_name"
+        $Source_Profile_folder = "\\Server\Folder\$Folder_name"
+        $Destination_Profile_folder = "\\Server\Profile\$Folder_name"
 
         #Robocopy Execute
         robocopy $Source_Home_Folder $Destination_Home_Folder /COPYALL /Z /E /W:1 /R:2 /tee /Move 
@@ -99,5 +99,5 @@ foreach ($user in $externaltempusers){
 
     #Sends Email with user's memberships
     $fullname = $username_details.Name
-    Send-MailMessage -From $From -To $EmailTo -Subject "Departed User $fullname" -body "The Departed account $fullname is now completed. Their home and profile folders have been moved to the Archived Server. Here is a list of Group Memberships he/she was assigned to: `n$assignedgroups" -SmtpServer 'smtp.doi.nycnet' -Port '25'
+    Send-MailMessage -From $From -To $EmailTo -Subject "Departed User $fullname" -body "The Departed account $fullname is now completed. Their home and profile folders have been moved to the Archived Server. Here is a list of Group Memberships he/she was assigned to: `n$assignedgroups" -SmtpServer 'smtp' -Port '25'
 }
